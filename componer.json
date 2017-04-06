@@ -1,0 +1,30 @@
+{
+	"name": "gulp-sass-separate-vendors",
+	"version": "0.0.1",
+	"type": "npm",
+	"build": {
+		"from": "src/gulp-sass-separate-vendors.js",
+		"to": "dist/gulp-sass-separate-vendors.js",
+		"options": {
+			"minify": false,
+			"sourcemap": false,
+			"vendors": false
+		},
+		"settings": {
+			"output": {
+				"libraryTarget": "commonjs2"
+			},
+			"target": "node",
+			"node": {
+				"global": false,
+				"Buffer": false,
+				"__dirname": false,
+				"__filename": false
+			}
+		}
+	},
+	"test": {
+		"entry": "test/gulp-sass-separate-vendors.js",
+		"browsers": "Terminal"
+	}
+}

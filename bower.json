@@ -1,0 +1,31 @@
+{
+    "name": "gulp-sass-separate-vendors",
+    "version": "0.0.1",
+    "description": "gulp sass separate vendors",
+    "main": [
+        "src/gulp-sass-separate-vendors.js"
+    ],
+    "moduleType": [
+        "es6"
+    ],
+    "authors": [
+        "componer"
+    ],
+    "keywords": [
+        "componer"
+    ],
+    "dependencies": {
+        "bootstrap-sass": "^3.3.7"
+    },
+    "devDependencies": {},
+    "homepage": "https://github.com/componer/gulp-sass-separate-vendors",
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/componer/gulp-sass-separate-vendors.git"
+    },
+    "ignore": [
+        "preview/",
+        "test/",
+        "componer.json"
+    ]
+}
