@@ -55,11 +55,14 @@ module.exports =
 	    var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 
 	    var _ = {};
-	    var importers = '';
-	    var styles = '';
-	    _.extract = function () {
-	        return (0, _gulpBufferify2.default)(function (content) {
-	            var lines = content.split("\r\n");
+	    var originFile;
+	    var vendorsFile;
+
+	    _.init = function () {
+	        return (0, _gulpBufferify2.default)(function (content, file, context) {
+	            var importers = '';
+	            var lines = (0, _stripComments2.default)(content).split("\r\n");
+
 	            var _iteratorNormalCompletion = true;
 	            var _didIteratorError = false;
 	            var _iteratorError = undefined;
@@ -69,18 +72,19 @@ module.exports =
 	                    var line = _step.value;
 
 	                    var text = line.trim();
-	                    if (text.indexOf('@import') === 0) {
-	                        var matches = text.match(/@import ['"](.+?)['"]/i);
-	                        if (Array.isArray(matches)) {
-	                            var mod = matches[1];
-	                            var vendors = options.vendors;
-	                            if (vendors === undefined || vendors === true || Array.isArray(vendors) && vendors.indexOf(mod)) {
-	                                importers += text + "\r\n";
-	                                continue;
-	                            }
-	                        }
+	                    if (text.indexOf('@import') !== 0) continue;
+
+	                    var matches = text.match(/@import ['"](.+?)['"]/i);
+	                    if (!Array.isArray(matches)) continue;
+
+	                    var mod = matches[1];
+	                    if (mod.indexOf('./') < 2 || mod.substr(mod.length - 4) === '.css') continue;
+
+	                    var vendors = options.vendors;
+	                    if (vendors === undefined || vendors === true || Array.isArray(vendors) && vendors.indexOf(mod) > -1) {
+	                        importers += text + "\r\n";
+	                        content = content.replace(text, '/*(' + mod + ':*/' + text + '/*:' + mod + ')*/');
 	                    }
-	                    styles += text + "\r\n";
 	                }
 	            } catch (err) {
 	                _didIteratorError = true;
@@ -97,12 +101,34 @@ module.exports =
 	                }
 	            }
 
-	            return importers;
+	            var filepath = originFile = file.path;
+	            if (importers !== '') {
+	                var newfile = file.clone();
+	                var ext = filepath.substr(filepath.lastIndexOf('.'));
+	                vendorsFile = file.path = filepath.substr(0, filepath.lastIndexOf('.')) + '.vendors' + ext;
+	                file.contents = new Buffer(importers);
+	                context.push(newfile);
+	            }
+
+	            return content;
 	        });
 	    };
-	    _.filter = function () {
-	        return (0, _gulpBufferify2.default)(function (content) {
-	            return styles.trim();
+	    _.extract = function () {
+	        return (0, _gulpBufferify2.default)(function (content, file, context, notifier) {
+	            var callback = notifier();
+	            var filepath = file.path;
+	            var filename = filepath.substr(0, filepath.lastIndexOf('.'));
+	            originFile = originFile.substr(0, originFile.lastIndexOf('.'));
+	            vendorsFile = vendorsFile && vendorsFile.substr(0, vendorsFile.lastIndexOf('.'));
+
+	            switch (options.output) {
+	                case -1:
+	                    if (filename === originFile) return callback();
+	                case 1:
+	                    if (filename === vendorsFile) return callback();
+	            }
+
+	            return content.replace(/\/\*\((.+?)\:\*\/([\s\S]+?)\/\*\:(.+?)\)\*\//ig, '/* $2 */');
 	        });
 	    };
 	    return _;
@@ -112,6 +138,10 @@ module.exports =
 
 	var _gulpBufferify2 = _interopRequireDefault(_gulpBufferify);
 
+	var _stripComments = __webpack_require__(2);
+
+	var _stripComments2 = _interopRequireDefault(_stripComments);
+
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 /***/ },
@@ -119,6 +149,12 @@ module.exports =
 /***/ function(module, exports) {
 
 	module.exports = require("gulp-bufferify");
+
+/***/ },
+/* 2 */
+/***/ function(module, exports) {
+
+	module.exports = require("strip-comments");
 
 /***/ }
 /******/ ]);
