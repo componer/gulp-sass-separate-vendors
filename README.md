@@ -15,18 +15,17 @@ import SeparateVendors from 'gulp-sass-separate-vendors'
 var separator = SeparateVendors(options)
 
 gulp.src('test.scss')
+    .pipe(separator.init())
+    .pipe(sass())
     .pipe(separator.extract())
-    .pipe(sass())
-    .pipe(gulp.dest('.'))
-
-gulp.src('test.scss')
-    .pipe(separator.filter())
-    .pipe(sass())
-    .pipe(rename({suffix: '.vendors'}))
     .pipe(gulp.dest('.'))
 ```
 
 The previous code will help to get two css files, one contains only vendors style and the other one contains the source style without vendors.
+
+**Notice:** one `separator` can be called in only one pipe line, do not reuse it in another pipe line.
+
+**Notice:** `@import "some-module";` should be at the first place in a scss text line, and do not put it at the begin of a line in comments.
 
 ## Options
 
@@ -34,21 +33,36 @@ You can pass `options` into the generator function like previous example code.
 
 ```
 {
-    vendors: ['bootstrap-sass']
+    vendors: ['bootstrap-sass', '_settings.scss', './my-styles.scss'],
+    output: -1,
 }
 ```
 
-Now only `vendors` option supported. You can pass `true` or an array, the array is a list of modules.
+**vendors**
+
+*boolean or array*
+
+Which modules do you want to put in vendors.css file.
+If vendors is `undefined` or `true`, all modules will be contained in vendors.
+
+**output**
+
+*number*
+
+-1: only vendors.css file.<br>
+0 or false or undefined: vendors in vendors file, and internal styles in single file, two output files.<br>
+1: only styles without vendors.
 
 ## Methods/API
 
-**.extract**
+**.init()**
 
-`separator.extract()` should be called in pipe line, before sass compiler. After do this, the output file will contain only vendors styles.
+Should be called before sass compiler. It will record scss modules.
 
-**.filter**
+**.extract(output)**
 
-`separator.filter()` should be called in pipe line, before sass compiler.  After do this, the output file will contain only you own style codes without any vendors.
+Should be called after sass compiler. It will decide what css files to output.
+output is as the same as options.output, so you can add it before .extract.
 
 ## Generator
 

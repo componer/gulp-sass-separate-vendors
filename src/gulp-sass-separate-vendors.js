@@ -1,5 +1,4 @@
 import bufferify from 'gulp-bufferify'
-import strip from 'strip-comments'
 
 /**
 @desc separate sass importers from source sass, look into ../test/gulp-sass-dll.js
@@ -22,7 +21,7 @@ export default function(options = {}) {
 
     _.init = () => bufferify((content, file, context) => {
         let importers = ''
-        let lines = strip(content).split("\r\n")
+        let lines = content.split("\r\n")
 
         for(let line of lines) {
             let text = line.trim()
@@ -32,7 +31,7 @@ export default function(options = {}) {
             if(!Array.isArray(matches)) continue
 
             let mod = matches[1]
-            if(mod.indexOf('./') < 2 || mod.substr(mod.length - 4) === '.css') continue
+            if(mod.substr(mod.length - 4) === '.css') continue
 
             let vendors = options.vendors
             if(vendors === undefined || vendors === true || (Array.isArray(vendors) && vendors.indexOf(mod) > -1)) {
@@ -45,28 +44,26 @@ export default function(options = {}) {
         if(importers !== '') {
             let newfile = file.clone()
             let ext = filepath.substr(filepath.lastIndexOf('.'))
-            vendorsFile = file.path = filepath.substr(0, filepath.lastIndexOf('.')) + '.vendors' + ext
-            file.contents = new Buffer(importers)
+            vendorsFile = newfile.path = filepath.substr(0, filepath.lastIndexOf('.')) + '.vendors' + ext
+            newfile.contents = new Buffer(importers)
             context.push(newfile)
         }
 
         return content
     })
-    _.extract = () => bufferify((content, file, context, notifier) => {
-        let callback = notifier()
+    _.extract = (output) => bufferify((content, file, context, notifier) => {
         let filepath = file.path
         let filename = filepath.substr(0, filepath.lastIndexOf('.'))
-        originFile = originFile.substr(0, originFile.lastIndexOf('.'))
-        vendorsFile = vendorsFile && vendorsFile.substr(0, vendorsFile.lastIndexOf('.'))
+        let _originFile = originFile.substr(0, originFile.lastIndexOf('.'))
+        let _vendorsFile = vendorsFile && vendorsFile.substr(0, vendorsFile.lastIndexOf('.'))
 
-        switch(options.output) {
-            case -1:
-                if(filename === originFile) return callback()
-            case 1:
-                if(filename === vendorsFile) return callback()
-        }
 
-        return content.replace(/\/\*\((.+?)\:\*\/([\s\S]+?)\/\*\:(.+?)\)\*\//ig, '/* $2 */')
+        output = output === undefined ? options.output : output
+
+        if(output === -1 && filename === _originFile) return notifier()()
+        if(output === 1 && filename === _vendorsFile) return notifier()()
+
+        return content.replace(/\/\*\((.+?)\:\*\/([\s\S]+?)\/\*\:(.+?)\)\*\//ig, '/* @import "$1"; */')
 	})
     return _
 }
