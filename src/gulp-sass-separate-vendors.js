@@ -5,9 +5,9 @@ import bufferify from 'gulp-bufferify'
 @param object options: {
     boolean|array vendors: modules to separate from source sass, default is true
     init extract:
-        -1: only vendors in a single file
+        1: only vendors in a single file
         0 or false or undefined: vendors in vendors file, and internal styles in single file, two output files
-        1: only styles without vendors
+        -1: only styles without vendors
 }
 @return {
     function extract: only vendors,
@@ -60,8 +60,8 @@ export default function(options = {}) {
 
         output = output === undefined ? options.output : output
 
-        if(output === -1 && filename === _originFile) return notifier()()
-        if(output === 1 && filename === _vendorsFile) return notifier()()
+        if(output === 1 && filename === _originFile) return notifier()()
+        if(output === -1 && filename === _vendorsFile) return notifier()()
 
         return content.replace(/\/\*\((.+?)\:\*\/([\s\S]+?)\/\*\:(.+?)\)\*\//ig, '/* @import "$1"; */')
 	})

@@ -122,8 +122,8 @@ module.exports =
 
 	            output = output === undefined ? options.output : output;
 
-	            if (output === -1 && filename === _originFile) return notifier()();
-	            if (output === 1 && filename === _vendorsFile) return notifier()();
+	            if (output === 1 && filename === _originFile) return notifier()();
+	            if (output === -1 && filename === _vendorsFile) return notifier()();
 
 	            return content.replace(/\/\*\((.+?)\:\*\/([\s\S]+?)\/\*\:(.+?)\)\*\//ig, '/* @import "$1"; */');
 	        });

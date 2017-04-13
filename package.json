@@ -1,6 +1,6 @@
 {
   "name": "gulp-sass-separate-vendors",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "gulp sass separate vendors",
   "main": "dist/gulp-sass-separate-vendors.js",
   "scripts": {},

@@ -34,7 +34,7 @@ You can pass `options` into the generator function like previous example code.
 ```
 {
     vendors: ['bootstrap-sass', '_settings.scss', './my-styles.scss'],
-    output: -1,
+    output: 1,
 }
 ```
 
@@ -49,9 +49,9 @@ If vendors is `undefined` or `true`, all modules will be contained in vendors.
 
 *number*
 
--1: only vendors.css file.<br>
+1: only vendors.css file.<br>
 0 or false or undefined: vendors in vendors file, and internal styles in single file, two output files.<br>
-1: only styles without vendors.
+-1: only styles without vendors.
 
 ## Methods/API
 
