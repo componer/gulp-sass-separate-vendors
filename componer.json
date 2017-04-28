@@ -24,7 +24,10 @@
 		}
 	},
 	"test": {
-		"entry": "test/gulp-sass-separate-vendors.js",
+		"entry": {
+			"from": "test/gulp-sass-separate-vendors.js",
+			"settings": {}
+		},
 		"browsers": "Terminal"
 	}
 }

@@ -43,7 +43,7 @@ module.exports =
 /************************************************************************/
 /******/ ([
 /* 0 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 
@@ -61,47 +61,67 @@ module.exports =
 	    _.init = function () {
 	        return (0, _gulpBufferify2.default)(function (content, file, context) {
 	            var importers = '';
-	            var lines = content.split("\r\n");
-
-	            var _iteratorNormalCompletion = true;
-	            var _didIteratorError = false;
-	            var _iteratorError = undefined;
-
-	            try {
-	                for (var _iterator = lines[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-	                    var line = _step.value;
-
-	                    var text = line.trim();
-	                    if (text.indexOf('@import') !== 0) continue;
-
-	                    var matches = text.match(/@import ['"](.+?)['"]/i);
-	                    if (!Array.isArray(matches)) continue;
-
-	                    var mod = matches[1];
-	                    if (mod.substr(mod.length - 4) === '.css') continue;
-
-	                    var vendors = options.vendors;
-	                    if (vendors === undefined || vendors === true || Array.isArray(vendors) && vendors.indexOf(mod) > -1) {
-	                        importers += text + "\r\n";
-	                        content = content.replace(text, '/*(' + mod + ':*/' + text + '/*:' + mod + ')*/');
-	                    }
-	                }
-	            } catch (err) {
-	                _didIteratorError = true;
-	                _iteratorError = err;
-	            } finally {
-	                try {
-	                    if (!_iteratorNormalCompletion && _iterator.return) {
-	                        _iterator.return();
-	                    }
-	                } finally {
-	                    if (_didIteratorError) {
-	                        throw _iteratorError;
-	                    }
-	                }
-	            }
-
 	            var filepath = originFile = file.path;
+	            var dir = _path2.default.dirname(filepath);
+
+	            /**
+	             * first loop, find out the first level of input .scss files, for find out vendors in these .scss files
+	             */
+	            var lines = content.split("\n");
+	            lines.forEach(function (line, i) {
+	                var text = line.trim();
+	                if (text.indexOf('@import') !== 0) return;
+
+	                var matches = text.match(/@import ['"](.+?)['"]/i);
+	                if (!Array.isArray(matches)) return;
+
+	                var mod = matches[1];
+
+	                if (mod.substr(mod.length - 4) === '.css') return;
+
+	                var build = function build(modfile) {
+	                    var buffer = _fs2.default.readFileSync(modfile).toString();
+	                    lines[i] = buffer;
+	                };
+
+	                if (_fs2.default.existsSync(_path2.default.resolve(dir, mod))) {
+	                    var modfile = _path2.default.resolve(dir, mod);
+	                    build(modfile);
+	                    return;
+	                } else if (_fs2.default.existsSync(_path2.default.resolve(dir, '_' + mod + '.scss'))) {
+	                    var _modfile = _path2.default.resolve(dir, '_' + mod + '.scss');
+	                    build(_modfile);
+	                    return;
+	                }
+	            });
+	            content = lines.join("\n");
+
+	            /**
+	             * second loop, use new content to find out modules and record them
+	             */
+	            lines = content.split("\n");
+	            lines.forEach(function (line, i) {
+	                var text = line.trim();
+	                if (text.indexOf('@import') !== 0) return;
+
+	                var matches = text.match(/@import ['"](.+?)['"]/i);
+	                if (!Array.isArray(matches)) return;
+
+	                var mod = matches[1];
+
+	                if (mod.substr(mod.length - 4) === '.css') return;
+
+	                var vendors = options.vendors;
+	                if (vendors === undefined || vendors === true || Array.isArray(vendors) && vendors.indexOf(mod) > -1) {
+	                    importers += text + "\r\n";
+	                    lines[i] = '/*(' + mod + ':*/' + text + '/*:' + mod + ')*/';
+	                }
+	            });
+	            content = lines.join("\n");
+
+	            /**
+	             * if importers is not empty, add a new file in pipe line
+	             */
 	            if (importers !== '') {
 	                var newfile = file.clone();
 	                var ext = filepath.substr(filepath.lastIndexOf('.'));
@@ -131,17 +151,37 @@ module.exports =
 	    return _;
 	};
 
-	var _gulpBufferify = __webpack_require__(1);
+	var _path = __webpack_require__(1);
+
+	var _path2 = _interopRequireDefault(_path);
+
+	var _fs = __webpack_require__(2);
+
+	var _fs2 = _interopRequireDefault(_fs);
+
+	var _gulpBufferify = __webpack_require__(3);
 
 	var _gulpBufferify2 = _interopRequireDefault(_gulpBufferify);
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-/***/ },
+/***/ }),
 /* 1 */
-/***/ function(module, exports) {
+/***/ (function(module, exports) {
+
+	module.exports = require("path");
+
+/***/ }),
+/* 2 */
+/***/ (function(module, exports) {
+
+	module.exports = require("fs");
+
+/***/ }),
+/* 3 */
+/***/ (function(module, exports) {
 
 	module.exports = require("gulp-bufferify");
 
-/***/ }
+/***/ })
 /******/ ]);

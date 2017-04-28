@@ -27,6 +27,31 @@ The previous code will help to get two css files, one contains only vendors styl
 
 **Notice:** `@import "some-module";` should be at the first place in a scss text line, and do not put it at the begin of a line in comments.
 
+If your A.scss file import another B.scss, and B.scss import a vendor module, e.g. 'bootstrap-sass', how does gulp-sass-separate-vendors deal with this situation?
+It will seperate the vendors from B.scss file. However, only one opportunity can be used. It means if you import another C.scss in B.scss, vendors in C.scss will not be seperated.
+
+```
+/* A.scss */
+@import 'a-module';
+@import 'B.scss';
+...
+```
+
+```
+/* B.scss */
+@import 'b-module';
+@import 'C.scss';
+...
+```
+
+```
+/* C.scss */
+@import 'c-module';
+...
+```
+
+a-module and b-module will compile to vendors.css file, but c-module will not, even if it is in `options.vendors`. To resolve this problem, you should arrange your importers more suitable. For example: never import deep level files, or add local .scss as a vendor into `options.vendors`.
+
 ## Options
 
 You can pass `options` into the generator function like previous example code.

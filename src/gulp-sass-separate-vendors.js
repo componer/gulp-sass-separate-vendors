@@ -1,3 +1,5 @@
+import path from 'path'
+import fs from 'fs'
 import bufferify from 'gulp-bufferify'
 
 /**
@@ -21,26 +23,68 @@ export default function(options = {}) {
 
     _.init = () => bufferify((content, file, context) => {
         let importers = ''
-        let lines = content.split("\r\n")
+        let filepath = originFile = file.path
+        let dir = path.dirname(filepath)
 
-        for(let line of lines) {
+        /**
+         * first loop, find out the first level of input .scss files, for find out vendors in these .scss files
+         */
+        let lines = content.split("\n")
+        lines.forEach((line, i) => {
             let text = line.trim()
-            if(text.indexOf('@import') !== 0) continue
+            if(text.indexOf('@import') !== 0) return
 
             let matches = text.match(/@import ['"](.+?)['"]/i)
-            if(!Array.isArray(matches)) continue
+            if(!Array.isArray(matches)) return
 
             let mod = matches[1]
-            if(mod.substr(mod.length - 4) === '.css') continue
 
-            let vendors = options.vendors
-            if(vendors === undefined || vendors === true || (Array.isArray(vendors) && vendors.indexOf(mod) > -1)) {
-                importers += text + "\r\n"
-                content = content.replace(text, '/*(' + mod + ':*/' + text + '/*:' + mod + ')*/')
+            if(mod.substr(mod.length - 4) === '.css') return
+
+            let build = modfile => {
+              let buffer = fs.readFileSync(modfile).toString()
+              lines[i] = buffer
             }
-        }
 
-        let filepath = originFile = file.path
+            if(fs.existsSync(path.resolve(dir, mod))) {
+              let modfile = path.resolve(dir, mod)
+              build(modfile)
+              return
+            }
+            else if(fs.existsSync(path.resolve(dir, '_' + mod + '.scss'))) {
+              let modfile = path.resolve(dir, '_' + mod + '.scss')
+              build(modfile)
+              return
+            }
+        })
+        content = lines.join("\n")
+
+        /**
+         * second loop, use new content to find out modules and record them
+         */
+        lines = content.split("\n")
+        lines.forEach((line, i) => {
+          let text = line.trim()
+          if(text.indexOf('@import') !== 0) return
+
+          let matches = text.match(/@import ['"](.+?)['"]/i)
+          if(!Array.isArray(matches)) return
+
+          let mod = matches[1]
+
+          if(mod.substr(mod.length - 4) === '.css') return
+
+          let vendors = options.vendors
+          if(vendors === undefined || vendors === true || (Array.isArray(vendors) && vendors.indexOf(mod) > -1)) {
+            importers += text + "\r\n"
+            lines[i] = '/*(' + mod + ':*/' + text + '/*:' + mod + ')*/'
+          }
+        })
+        content = lines.join("\n")
+
+        /**
+         * if importers is not empty, add a new file in pipe line
+         */
         if(importers !== '') {
             let newfile = file.clone()
             let ext = filepath.substr(filepath.lastIndexOf('.'))
@@ -56,7 +100,6 @@ export default function(options = {}) {
         let filename = filepath.substr(0, filepath.lastIndexOf('.'))
         let _originFile = originFile.substr(0, originFile.lastIndexOf('.'))
         let _vendorsFile = vendorsFile && vendorsFile.substr(0, vendorsFile.lastIndexOf('.'))
-
 
         output = output === undefined ? options.output : output
 
