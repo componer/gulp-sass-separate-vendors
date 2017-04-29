@@ -48,107 +48,153 @@ module.exports =
 	'use strict';
 
 	Object.defineProperty(exports, "__esModule", {
-	    value: true
+	  value: true
 	});
 
 	exports.default = function () {
-	    var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+	  var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 
-	    var _ = {};
-	    var originFile;
-	    var vendorsFile;
+	  var _ = {};
+	  var vendors;
+	  var originFileId;
+	  var vendorsFileId;
+	  var importVendors = '';
+	  var importModules = {};
+	  var importBuild = function importBuild(content, file, context) {
+	    var lines = content.split("\n");
+	    lines.forEach(function (line, i) {
+	      var text = line.trim();
+	      if (text.indexOf('@import') !== 0) return;
 
-	    _.init = function () {
-	        return (0, _gulpBufferify2.default)(function (content, file, context) {
-	            var importers = '';
-	            var filepath = originFile = file.path;
-	            var dir = _path2.default.dirname(filepath);
+	      var matches = text.match(/@import ['"](.+?)['"]/i);
+	      if (!Array.isArray(matches)) return;
 
-	            /**
-	             * first loop, find out the first level of input .scss files, for find out vendors in these .scss files
-	             */
-	            var lines = content.split("\n");
-	            lines.forEach(function (line, i) {
-	                var text = line.trim();
-	                if (text.indexOf('@import') !== 0) return;
+	      var mod = matches[1];
 
-	                var matches = text.match(/@import ['"](.+?)['"]/i);
-	                if (!Array.isArray(matches)) return;
+	      if (mod.substr(mod.length - 4) === '.css') return;
 
-	                var mod = matches[1];
+	      /**
+	       * if we find this line is a importer for a vendor
+	       */
+	      if (vendors === undefined || vendors === true || Array.isArray(vendors) && vendors.indexOf(mod) > -1) {
+	        importVendors += text + "\n";
+	        lines[i] = '/*(vendor:' + mod + ':*/' + text + '/*:' + mod + ')*/'; // this line will be commented in original file
+	        return;
+	      }
 
-	                if (mod.substr(mod.length - 4) === '.css') return;
+	      /**
+	       * if we find this line is a importer for a local .scss file
+	       */
+	      var dir = _path2.default.dirname(file.path);
+	      var ext = file.path.substr(file.path.lastIndexOf('.'));
+	      var build = function build(modfile) {
+	        var modid = getFileWithoutExt(modfile);
+	        importModules[modid] = {
+	          module: mod,
+	          file: modfile,
+	          parent: file.path
+	        };
+	        lines[i] = '/*(module:' + mod + ':*/' + text + '/*:' + modid + ')*/'; // this line will be replaced with new file in original file
 
-	                var build = function build(modfile) {
-	                    var buffer = _fs2.default.readFileSync(modfile).toString();
-	                    lines[i] = buffer;
-	                };
+	        var newfile = file.clone();
+	        var modbuffer = _fs2.default.readFileSync(modfile).toString();
+	        newfile.path = modfile;
+	        newfile.contents = importBuild(modbuffer, newfile, context);
+	        context.push(newfile);
+	      };
+	      if (_fs2.default.existsSync(_path2.default.resolve(dir, mod))) {
+	        var modfile = _path2.default.resolve(dir, mod);
+	        build(modfile);
+	        return;
+	      } else if (_fs2.default.existsSync(_path2.default.resolve(dir, '_' + mod + ext))) {
+	        var _modfile = _path2.default.resolve(dir, '_' + mod + ext);
+	        build(_modfile);
+	        return;
+	      }
+	    });
+	    content = lines.join("\n");
 
-	                if (_fs2.default.existsSync(_path2.default.resolve(dir, mod))) {
-	                    var modfile = _path2.default.resolve(dir, mod);
-	                    build(modfile);
-	                    return;
-	                } else if (_fs2.default.existsSync(_path2.default.resolve(dir, '_' + mod + '.scss'))) {
-	                    var _modfile = _path2.default.resolve(dir, '_' + mod + '.scss');
-	                    build(_modfile);
-	                    return;
-	                }
-	            });
-	            content = lines.join("\n");
+	    originFileId = getFileWithoutExt(file.path);
+	    return new Buffer(content);
+	  };
 
-	            /**
-	             * second loop, use new content to find out modules and record them
-	             */
-	            lines = content.split("\n");
-	            lines.forEach(function (line, i) {
-	                var text = line.trim();
-	                if (text.indexOf('@import') !== 0) return;
+	  _.init = function (vendors) {
+	    return (0, _gulpBufferify2.default)(function (content, file, context, notifier) {
+	      var callback = notifier();
+	      vendors = vendors || options.vendors;
+	      file.contents = importBuild(content, file, context, notifier);
 
-	                var matches = text.match(/@import ['"](.+?)['"]/i);
-	                if (!Array.isArray(matches)) return;
+	      /**
+	       * add vendors as a new file in pipe line, then it will output a .vendors.css file
+	       */
+	      if (importVendors !== '') {
+	        var vendorsCollector = file.clone();
+	        var ext = file.path.substr(file.path.lastIndexOf('.'));
+	        var vendorsFilePath = vendorsCollector.path = file.path.substr(0, file.path.lastIndexOf('.')) + '.vendors' + ext;
+	        vendorsCollector.contents = new Buffer(importVendors);
+	        context.push(vendorsCollector);
+	        vendorsFileId = getFileWithoutExt(vendorsFilePath);
+	      }
 
-	                var mod = matches[1];
+	      callback(null, file);
+	    });
+	  };
+	  _.compile = function () {
+	    return (0, _gulpBufferify2.default)(function (content, file, context, notifier) {
+	      var callback = notifier();
+	      var filepath = file.path;
+	      var modid = getFileWithoutExt(filepath);
 
-	                if (mod.substr(mod.length - 4) === '.css') return;
+	      if (importModules[modid]) {
+	        // remove @charset from import module files
+	        if (content.indexOf('@charset') === 0) {
+	          content = content.replace(/@charset\s+['"](.*?)['"];/i, function (match) {
+	            return '';
+	          });
+	          content = content.trim();
+	        }
+	        importModules[modid].content = content;
+	        return callback(); // drop this file in pipe line
+	      }
+	      callback(null, file); // only original file and vendors file left in pipe line
+	    });
+	  };
+	  _.combine = function () {
+	    return (0, _gulpBufferify2.default)(function (content, file, context, notifier) {
+	      var callback = notifier();
+	      var filepath = file.path;
+	      var modid = getFileWithoutExt(filepath);
+	      if (modid !== originFileId) {
+	        return callback(null, file); // vendors will not be in pipe line
+	      }
 
-	                var vendors = options.vendors;
-	                if (vendors === undefined || vendors === true || Array.isArray(vendors) && vendors.indexOf(mod) > -1) {
-	                    importers += text + "\r\n";
-	                    lines[i] = '/*(' + mod + ':*/' + text + '/*:' + mod + ')*/';
-	                }
-	            });
-	            content = lines.join("\n");
-
-	            /**
-	             * if importers is not empty, add a new file in pipe line
-	             */
-	            if (importers !== '') {
-	                var newfile = file.clone();
-	                var ext = filepath.substr(filepath.lastIndexOf('.'));
-	                vendorsFile = newfile.path = filepath.substr(0, filepath.lastIndexOf('.')) + '.vendors' + ext;
-	                newfile.contents = new Buffer(importers);
-	                context.push(newfile);
-	            }
-
-	            return content;
+	      // find out import modules, and replace all of them
+	      while (content.indexOf('/*(module:') > 0) {
+	        content = content.replace(/\/\*\(module\:(.+?)\:\*\/([\s\S]+?)\/\*\:(.+?)\)\*\//ig, function (match, $1, $2, $3, string) {
+	          var resolve = importModules[$3] && importModules[$3].content ? importModules[$3].content : '/* @import "' + $1 + '" */';
+	          delete importModules[$3];
+	          return resolve;
 	        });
-	    };
-	    _.extract = function (output) {
-	        return (0, _gulpBufferify2.default)(function (content, file, context, notifier) {
-	            var filepath = file.path;
-	            var filename = filepath.substr(0, filepath.lastIndexOf('.'));
-	            var _originFile = originFile.substr(0, originFile.lastIndexOf('.'));
-	            var _vendorsFile = vendorsFile && vendorsFile.substr(0, vendorsFile.lastIndexOf('.'));
+	      }
 
-	            output = output === undefined ? options.output : output;
+	      // find out vendors, and replace them with comments
+	      content = content.replace(/\/\*\(vendor\:(.+?)\:\*\/([\s\S]+?)\/\*\:(.+?)\)\*\//ig, '/* @import "$1"; */');
 
-	            if (output === 1 && filename === _originFile) return notifier()();
-	            if (output === -1 && filename === _vendorsFile) return notifier()();
+	      file.contents = new Buffer(content);
+	      callback(null, file);
+	    });
+	  };
+	  _.extract = function (which) {
+	    return (0, _gulpBufferify2.default)(function (content, file, context, notifier) {
+	      var filepath = file.path;
+	      var modid = getFileWithoutExt(filepath);
+	      var extract = which === undefined ? options.extract : which;
 
-	            return content.replace(/\/\*\((.+?)\:\*\/([\s\S]+?)\/\*\:(.+?)\)\*\//ig, '/* @import "$1"; */');
-	        });
-	    };
-	    return _;
+	      if (extract === 1 && modid === originFileId) return notifier()();
+	      if (extract === -1 && modid === vendorsFileId) return notifier()();
+	    });
+	  };
+	  return _;
 	};
 
 	var _path = __webpack_require__(1);
@@ -164,6 +210,29 @@ module.exports =
 	var _gulpBufferify2 = _interopRequireDefault(_gulpBufferify);
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+	var getFileWithoutExt = function getFileWithoutExt(filepath) {
+	  return filepath.substr(0, filepath.lastIndexOf('.'));
+	};
+
+	/**
+	@desc separate sass importers from source sass, look into ../test/gulp-sass-dll.js
+	@param object options: {
+	  boolean|array vendors: modules to separate from source sass, default is true
+	  init extract:
+	    1: only vendors in a single file
+	    0 or false or undefined: vendors in vendors file, and internal (only current source file, other imported local files will be treated as vendors) styles in single file, two output files
+	    -1: only styles without vendors
+	}
+	@return {
+	  function init(vendors): use before sass compile,
+	  function compile(): use after sass compiled,
+	  function combine(): use after compile(), output both styles and vendors styles
+	  function extract(which): use after combine(), extract vendors or filter vendors
+	    1: only output vendors css file
+	    -1: only output styles css file without vendors css file
+	}
+	**/
 
 /***/ }),
 /* 1 */
