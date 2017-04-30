@@ -24,7 +24,7 @@ var getFileWithoutExt = filepath => filepath.substr(0, filepath.lastIndexOf('.')
 **/
 export default function(options = {}) {
   var _ = {}
-  var vendors
+  var givenVendors
   var originFileId
   var vendorsFileId
   var importVendors = ''
@@ -45,7 +45,7 @@ export default function(options = {}) {
       /**
        * if we find this line is a importer for a vendor
        */
-      if(vendors === undefined || vendors === true || (Array.isArray(vendors) && vendors.indexOf(mod) > -1)) {
+      if(givenVendors === undefined || givenVendors === true || (Array.isArray(givenVendors) && givenVendors.indexOf(mod) > -1)) {
         importVendors += text + "\n"
         lines[i] = '/*(vendor:' + mod + ':*/' + text + '/*:' + mod + ')*/' // this line will be commented in original file
         return
@@ -88,10 +88,9 @@ export default function(options = {}) {
     return new Buffer(content)
   }
 
-  _.init = (vendors) => bufferify((content, file, context, notifier) => {
-    let callback = notifier()
-    vendors = vendors || options.vendors
-    file.contents = importBuild(content, file, context, notifier)
+  _.init = vendors => bufferify((content, file, context, callback) => {
+    givenVendors = vendors || options.vendors
+    file.contents = importBuild(content, file, context)
 
     /**
      * add vendors as a new file in pipe line, then it will output a .vendors.css file
@@ -107,8 +106,7 @@ export default function(options = {}) {
 
     callback(null, file)
   })
-  _.compile = () => bufferify((content, file, context, notifier) => {
-    let callback = notifier()
+  _.compile = () => bufferify((content, file, context, callback) => {
     let filepath = file.path
     let modid = getFileWithoutExt(filepath)
 
@@ -125,12 +123,11 @@ export default function(options = {}) {
     }
     callback(null, file) // only original file and vendors file left in pipe line
   })
-  _.combine = () => bufferify((content, file, context, notifier) => {
-    let callback = notifier()
+  _.combine = () => bufferify((content, file, context, callback) => {
     let filepath = file.path
     let modid = getFileWithoutExt(filepath)
     if(modid !== originFileId) {
-      return callback(null, file) // vendors will not be in pipe line
+      return callback(null, file)
     }
 
     // find out import modules, and replace all of them
@@ -148,13 +145,14 @@ export default function(options = {}) {
     file.contents = new Buffer(content)
     callback(null, file)
   })
-  _.extract = which => bufferify((content, file, context, notifier) => {
+  _.extract = which => bufferify((content, file, context, callback) => {
     let filepath = file.path
     let modid = getFileWithoutExt(filepath)
     let extract = which === undefined ? options.extract : which
 
-    if(extract === 1 && modid === originFileId) return notifier()()
-    if(extract === -1 && modid === vendorsFileId) return notifier()()
+    if(extract === 1 && modid === originFileId) return callback() // drop style bundle
+    if(extract === -1 && modid === vendorsFileId) return callback() // drop vendors bundle
+    return callback(null, file)
   })
   return _
 }

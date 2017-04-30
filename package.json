@@ -9,7 +9,7 @@
       "componer"
   ],
   "dependencies": {
-      "gulp-bufferify": "^0.0.7"
+      "gulp-bufferify": "0.0.8"
   },
   "devDependencies": {
       "gulp": "^3.9.1",

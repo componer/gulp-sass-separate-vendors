@@ -55,7 +55,7 @@ module.exports =
 	  var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 
 	  var _ = {};
-	  var vendors;
+	  var givenVendors;
 	  var originFileId;
 	  var vendorsFileId;
 	  var importVendors = '';
@@ -76,7 +76,7 @@ module.exports =
 	      /**
 	       * if we find this line is a importer for a vendor
 	       */
-	      if (vendors === undefined || vendors === true || Array.isArray(vendors) && vendors.indexOf(mod) > -1) {
+	      if (givenVendors === undefined || givenVendors === true || Array.isArray(givenVendors) && givenVendors.indexOf(mod) > -1) {
 	        importVendors += text + "\n";
 	        lines[i] = '/*(vendor:' + mod + ':*/' + text + '/*:' + mod + ')*/'; // this line will be commented in original file
 	        return;
@@ -119,10 +119,9 @@ module.exports =
 	  };
 
 	  _.init = function (vendors) {
-	    return (0, _gulpBufferify2.default)(function (content, file, context, notifier) {
-	      var callback = notifier();
-	      vendors = vendors || options.vendors;
-	      file.contents = importBuild(content, file, context, notifier);
+	    return (0, _gulpBufferify2.default)(function (content, file, context, callback) {
+	      givenVendors = vendors || options.vendors;
+	      file.contents = importBuild(content, file, context);
 
 	      /**
 	       * add vendors as a new file in pipe line, then it will output a .vendors.css file
@@ -140,8 +139,7 @@ module.exports =
 	    });
 	  };
 	  _.compile = function () {
-	    return (0, _gulpBufferify2.default)(function (content, file, context, notifier) {
-	      var callback = notifier();
+	    return (0, _gulpBufferify2.default)(function (content, file, context, callback) {
 	      var filepath = file.path;
 	      var modid = getFileWithoutExt(filepath);
 
@@ -160,12 +158,11 @@ module.exports =
 	    });
 	  };
 	  _.combine = function () {
-	    return (0, _gulpBufferify2.default)(function (content, file, context, notifier) {
-	      var callback = notifier();
+	    return (0, _gulpBufferify2.default)(function (content, file, context, callback) {
 	      var filepath = file.path;
 	      var modid = getFileWithoutExt(filepath);
 	      if (modid !== originFileId) {
-	        return callback(null, file); // vendors will not be in pipe line
+	        return callback(null, file);
 	      }
 
 	      // find out import modules, and replace all of them
@@ -185,13 +182,14 @@ module.exports =
 	    });
 	  };
 	  _.extract = function (which) {
-	    return (0, _gulpBufferify2.default)(function (content, file, context, notifier) {
+	    return (0, _gulpBufferify2.default)(function (content, file, context, callback) {
 	      var filepath = file.path;
 	      var modid = getFileWithoutExt(filepath);
 	      var extract = which === undefined ? options.extract : which;
 
-	      if (extract === 1 && modid === originFileId) return notifier()();
-	      if (extract === -1 && modid === vendorsFileId) return notifier()();
+	      if (extract === 1 && modid === originFileId) return callback(); // drop style bundle
+	      if (extract === -1 && modid === vendorsFileId) return callback(); // drop vendors bundle
+	      return callback(null, file);
 	    });
 	  };
 	  return _;
