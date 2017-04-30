@@ -71,7 +71,7 @@ module.exports =
 
 	      var mod = matches[1];
 
-	      if (mod.substr(mod.length - 4) === '.css') return;
+	      // if(mod.substr(mod.length - 4) === '.css') return
 
 	      /**
 	       * if we find this line is a importer for a vendor
